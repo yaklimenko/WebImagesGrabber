@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Web page images grabber</string>
+    <string name="get_images">get images</string>
+    <string name="predefined_test_url">habrahabr.ru/company/intel/blog/205970/</string>
+    <string name="errorDialogTitle">Error</string>
+</resources>
