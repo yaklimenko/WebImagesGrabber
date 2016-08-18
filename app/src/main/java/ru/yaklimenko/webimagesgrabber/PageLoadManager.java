@@ -14,12 +14,6 @@ import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
 
 /**
  * Created by Антон on 16.08.2016.
@@ -71,31 +65,28 @@ public class PageLoadManager {
 
     }
 
-    private class PageLoadTask extends AsyncTask<String, Void, String> {
+    private class PageLoadTask extends AsyncTask<String, Void, List<String>> {
 
         Throwable throwable;
         String processingUrl;
 
         @Override
-        protected String doInBackground(String... strings) {
+        protected List<String> doInBackground(String... strings) {
             String pageUrl = strings[0];
             processingUrl = pageUrl;
             if (!pageUrl.contains(Constants.SCHEMA_SEPARATOR)) {
-                String pageContent = null;
+
                 for (String protocolSchema : Constants.SUPPORTED_PROTOCOLS) {
                     String tmpUrl = protocolSchema + Constants.SCHEMA_SEPARATOR + pageUrl;
+                    List<String> urls;
                     try {
-                        pageContent = downloadPage(tmpUrl);
+                        urls = downloadPage(tmpUrl);
+                        return urls;
                     } catch (UnknownHostException e) {
-                        /*ignore*/
+                        //ignore
                     } catch (Exception e) {
                         throwable = e;
                         return null;
-                    }
-
-                    if (pageContent != null) {
-                        parseBaseUrlForPageResult(tmpUrl);
-                        return pageContent;
                     }
                 }
                 throwable = new IllegalStateException("cannot resolve remote host");
@@ -110,7 +101,7 @@ public class PageLoadManager {
             }
         }
 
-        private void parseBaseUrlForPageResult(String tmpUrl) {
+        private String getBaseUrl(String tmpUrl) {
             URL url = null;
             try {
                  url = new URL(tmpUrl);
@@ -118,68 +109,36 @@ public class PageLoadManager {
                 /* can't be */
             }
             if (url != null) {
-                String baseUrl =  url.getProtocol() + "://" + url.getHost();
-                pageResult.baseUrl = baseUrl;
+                return url.getProtocol() + "://" + url.getHost();
             }
+            return  null;
         }
 
-        private String downloadPage(String url) throws IOException {
-            Request request = new Request.Builder().url(url).build();
-            ResponseBody body = null;
-            try {
-                Response response = new OkHttpClient().newBuilder()
-                        .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                        .build()
-                        .newCall(request).execute();
-                body = response.body();
-                return body.string();
-            } finally {
-                if (body != null) {
-                    body.close();
+        private List<String> downloadPage(String url) throws IOException {
+            Document doc = Jsoup.connect(url).get();
+            doc.setBaseUri(getBaseUrl(url));
+            Elements images = doc.select("img[src]");
+            List<String> urls = new ArrayList<>(images.size());
+            for (Element imageElement : images) {
+                String src =  imageElement.attr("abs:src");
+                if (!src.isEmpty()) {
+                    urls.add(src);
                 }
             }
+            return urls;
         }
 
         @Override
-        protected void onPostExecute(String pageContent) {
+        protected void onPostExecute(List<String> imgUrls) {
             if (isCancelled()) {
                 return;
             }
             pageResult.throwable = throwable;
-            pageResult.pageContent = pageContent;
+            pageResult.imagesUrls = imgUrls;
             pageResult.notifyListener();
 
         }
     }
-
-    public static void getPreparedImagesUrlsFromPage (
-            String pageContent, String baseUrl, OnImagesUrlsPreparedListener listener
-    ) {
-        ImageExtractionTask imageExtractionTask = new ImageExtractionTask();
-        imageExtractionTask.execute(pageContent, baseUrl);
-    }
-
-    private static class ImageExtractionTask extends AsyncTask<String, Void, List<String>> {
-
-        @Override
-        protected List<String> doInBackground(String... params) {
-            String content = params[0];
-            String baseUrl = params[1];
-
-            List<String> unpreparedUrls = getImagesUrlsFromPage(content, baseUrl);
-
-
-            return null;
-        }
-
-
-
-        @Override
-        protected void onPostExecute(List<String> urls) {
-            super.onPostExecute(urls);
-        }
-    }
-
 
 
     private static List<String> getImagesUrlsFromPage(String pageContent, String baseUrl) {
@@ -198,14 +157,13 @@ public class PageLoadManager {
         return urls;
     }
 
-    public interface OnImagesUrlsPreparedListener {
-        void onImagesUrlsPrepared (List<String> imagesUrls);
-    }
+
 
     private class PageResult {
         String url;
-        String baseUrl;
-        String pageContent;
+
+
+        List<String> imagesUrls;
         Throwable throwable;
 
         private PageResult(String url) {
@@ -213,15 +171,15 @@ public class PageLoadManager {
         }
 
         private boolean isReady() {
-            return pageContent != null || throwable != null;
+            return imagesUrls != null || throwable != null;
         }
 
         private void notifyListener () {
             if (!isReady()) {
                 Log.e(TAG, "notifyListener: no result yet");
             }
-            if (pageContent != null) {
-                onPageLoadedListener.onPageLoaded(pageContent, baseUrl);
+            if (imagesUrls != null) {
+                onPageLoadedListener.onImagesUrlsPrepared(imagesUrls);
             } else {
                 onPageLoadedListener.onPageLoadingError(throwable);
             }
@@ -229,7 +187,7 @@ public class PageLoadManager {
     }
 
     public interface OnPageLoadedListener {
-        void onPageLoaded(String pageContent, String baseUrl);
+        void onImagesUrlsPrepared (List<String> imagesUrls);
         void onPageLoadingError(Throwable throwable);
     }
 
