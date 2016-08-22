@@ -29,19 +29,32 @@
             a:id="@+id/submitUrlButton"
             
             />
+
     </LinearLayout>
-    <ScrollView
+
+    <LinearLayout
+        a:id="@+id/progressBar"
         a:layout_width="match_parent"
         a:layout_height="wrap_content"
-        a:layout_alignParentBottom="true"
         a:layout_below="@id/urlContainer"
-        a:id="@+id/contentContainer"
-
+        a:layout_alignParentBottom="true"
+        a:gravity="center"
+        a:visibility="gone"
         >
-       <ProgressBar
-           a:layout_width="wrap_content"
-           a:layout_height="wrap_content"
-           a:layout_gravity="center"
-           a:id="@+id/progressBar"/>
-    </ScrollView>
+        <ProgressBar
+            a:layout_width="wrap_content"
+            a:layout_height="wrap_content" />
+    </LinearLayout>
+
+
+    <ListView
+        a:id="@+id/imagesList"
+        a:layout_below="@id/urlContainer"
+        a:layout_alignParentBottom="true"
+        a:layout_width="match_parent"
+        a:layout_height="wrap_content"
+        a:visibility="gone">
+
+    </ListView>
+
 </RelativeLayout>

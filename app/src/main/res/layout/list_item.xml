@@ -1,6 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ImageView
+<LinearLayout
     xmlns:a="http://schemas.android.com/apk/res/android"
-    a:layout_width="wrap_content"
+    a:layout_width="match_parent"
     a:layout_height="wrap_content"
-    />
+    a:orientation="vertical"
+     >
+    <HorizontalScrollView
+        a:layout_width="match_parent"
+        a:layout_height="wrap_content">
+        <TextView
+            a:id="@+id/imgUrl"
+            a:layout_width="wrap_content"
+            a:layout_height="wrap_content"
+            />
+    </HorizontalScrollView>
+    <ImageView
+        a:id="@+id/img"
+        a:layout_width="match_parent"
+        a:layout_height="wrap_content"
+        />
+
+</LinearLayout>

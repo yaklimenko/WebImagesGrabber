@@ -22,7 +22,6 @@ import java.util.List;
 public class PageLoadManager {
 
     private static final String TAG = PageLoadManager.class.getSimpleName();
-    private static final int TIMEOUT_SECONDS = 15;
 
     private static PageLoadManager instance;
 
@@ -65,20 +64,20 @@ public class PageLoadManager {
 
     }
 
-    private class PageLoadTask extends AsyncTask<String, Void, List<String>> {
+    private class PageLoadTask extends AsyncTask<String, Void, String[]> {
 
         Throwable throwable;
         String processingUrl;
 
         @Override
-        protected List<String> doInBackground(String... strings) {
+        protected String[] doInBackground(String... strings) {
             String pageUrl = strings[0];
             processingUrl = pageUrl;
             if (!pageUrl.contains(Constants.SCHEMA_SEPARATOR)) {
 
                 for (String protocolSchema : Constants.SUPPORTED_PROTOCOLS) {
                     String tmpUrl = protocolSchema + Constants.SCHEMA_SEPARATOR + pageUrl;
-                    List<String> urls;
+                    String[] urls;
                     try {
                         urls = downloadPage(tmpUrl);
                         return urls;
@@ -114,22 +113,24 @@ public class PageLoadManager {
             return  null;
         }
 
-        private List<String> downloadPage(String url) throws IOException {
+        private String[] downloadPage(String url) throws IOException {
             Document doc = Jsoup.connect(url).get();
             doc.setBaseUri(getBaseUrl(url));
             Elements images = doc.select("img[src]");
-            List<String> urls = new ArrayList<>(images.size());
-            for (Element imageElement : images) {
+            String[] urls = new String[images.size()];
+            for (int i = 0; i < images.size(); i++) {
+                Element imageElement = images.get(i);
                 String src =  imageElement.attr("abs:src");
                 if (!src.isEmpty()) {
-                    urls.add(src);
+                    urls[i] = src;
                 }
             }
+
             return urls;
         }
 
         @Override
-        protected void onPostExecute(List<String> imgUrls) {
+        protected void onPostExecute(String[] imgUrls) {
             if (isCancelled()) {
                 return;
             }
@@ -158,12 +159,17 @@ public class PageLoadManager {
     }
 
 
+    public void removeOnPageLoadedListener(OnPageLoadedListener onPageLoadedListener) {
+        if (this.onPageLoadedListener == onPageLoadedListener) {
+            this.onPageLoadedListener = null;
+        }
+    }
 
     private class PageResult {
         String url;
 
 
-        List<String> imagesUrls;
+        String[] imagesUrls;
         Throwable throwable;
 
         private PageResult(String url) {
@@ -178,6 +184,10 @@ public class PageLoadManager {
             if (!isReady()) {
                 Log.e(TAG, "notifyListener: no result yet");
             }
+            if (onPageLoadedListener == null) {
+                return;
+            }
+
             if (imagesUrls != null) {
                 onPageLoadedListener.onImagesUrlsPrepared(imagesUrls);
             } else {
@@ -187,7 +197,7 @@ public class PageLoadManager {
     }
 
     public interface OnPageLoadedListener {
-        void onImagesUrlsPrepared (List<String> imagesUrls);
+        void onImagesUrlsPrepared (String[] imagesUrls);
         void onPageLoadingError(Throwable throwable);
     }
 
